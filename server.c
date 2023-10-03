@@ -1,31 +1,11 @@
 #include "common.h"
 
+char *ipVersion = "";
+char *port = "";
+char * inputFilePath = NULL;
+
 int answerBoard[MAX][MAX];
 int clientBoard[MAX][MAX];
-
-void printBoard(int board[MAX][MAX]){
-    for(int i=0; i < MAX; i++){
-        for(int j=0; j < MAX; j++){
-            if(board[i][j] == EMPTY)
-                printf("0\t\t");
-            else if (board[i][j] == BOMB){
-                printf("*\t\t");
-            }
-            else if(board[i][j] == FLAGGED){
-                printf(">\t\t");
-            }
-            else if(board[i][j] == HIDDEN){
-                printf("-\t\t");
-            }
-            else{
-                printf("%d\t\t", board[i][j]);
-            }
-
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
 
 void initArgs(int argc, char *argv[]){
     if(argc != 5 || strcmp(argv[3], "-i") != 0){
@@ -76,7 +56,7 @@ void removeFlag(int coordinates[2]){
 bool win(struct action request){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            if(clientBoard[i][j] != answerBoard[i][j] && answerBoard[i][j] != BOMB){
+            if(!(request.coordinates[0] == i && request.coordinates[1] == j) && (clientBoard[i][j] != answerBoard[i][j] && answerBoard[i][j] != BOMB)){
                 return false;
             }
         }
@@ -92,7 +72,7 @@ bool revealBomb(struct action request){
     return false;
 }
 
-bool checkNewState(struct action request){
+int checkNewState(struct action request){
     if(revealBomb(request)){
         return GAME_OVER;
     }
@@ -145,6 +125,7 @@ int main(int argc, char *argv[]){
         socklen_t caddrlen = sizeof(cstorage);
 
         int csock = accept(s, caddr, &caddrlen);
+        printf("client connected\n");
         if(csock == -1){
             logexit("accept");
         }
@@ -165,17 +146,24 @@ int main(int argc, char *argv[]){
                 response = initAction(STATE, coordinates, clientBoard);
                 break;
             case REVEAL:
-                if(checkNewState(request) == STATE){
+                revealCell(request.coordinates);
+                switch(checkNewState(request))
+                {
+                case STATE:
                     revealCell(request.coordinates);
                     response = initAction(STATE, request.coordinates, clientBoard);
-                }
-                else if(checkNewState(request) == GAME_OVER){
+                    break;
+                case GAME_OVER:
                     response = initAction(GAME_OVER, request.coordinates, answerBoard);
                     resetBoard();
-                }
-                else if(checkNewState(request) == WIN){
+                    break;
+                case WIN:
                     response = initAction(WIN, request.coordinates, answerBoard);
                     resetBoard();
+                    break;
+                
+                default:
+                    break;
                 }
                 break;
             case FLAG:

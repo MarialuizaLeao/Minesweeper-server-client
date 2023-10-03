@@ -119,3 +119,27 @@ int server_sockaddr_init(const char *proto, const char *portstr, struct sockaddr
     }
 
 } 
+
+void printBoard(int board[MAX][MAX]){
+    for(int i=0; i < MAX; i++){
+        for(int j=0; j < MAX; j++){
+            if(board[i][j] == EMPTY)
+                printf("0\t\t");
+            else if (board[i][j] == BOMB){
+                printf("*\t\t");
+            }
+            else if(board[i][j] == FLAGGED){
+                printf(">\t\t");
+            }
+            else if(board[i][j] == HIDDEN){
+                printf("-\t\t");
+            }
+            else{
+                printf("%d\t\t", board[i][j]);
+            }
+
+        }
+        printf("\n");
+    }
+    printf("\n");
+}

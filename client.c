@@ -2,6 +2,9 @@
 
 int board[MAX][MAX];
 
+char *ipVersion = "";
+char *port = "";
+
 void initArgs(int argc, char *argv[]){
     if(argc != 3){
         errorHandler(CLIENT_USAGE_ERROR);
@@ -10,6 +13,14 @@ void initArgs(int argc, char *argv[]){
     else{
         ipVersion = argv[1];
         port = argv[2];
+    }
+}
+
+void resetBoard(){
+    for(int i = 0; i < MAX; i++){
+        for(int j = 0; j < MAX; j++){
+            board[i][j] = -2;
+        }
     }
 }
 
@@ -63,10 +74,11 @@ int parseCommand(char *cmd){
 
 int main(int argc, char **argv){
     initArgs(argc, argv);
+    resetBoard(board);
     //Reset board
 
     struct sockaddr_storage storage;
-    if(0 != addrparse(ipVersion, port, &storage)){
+    if(addrparse(ipVersion, port, &storage) != 0){
         logexit("addrparse");
     }
 
@@ -79,23 +91,22 @@ int main(int argc, char **argv){
 
     // Inicializar Conexao
     struct sockaddr *addr = (struct sockaddr *)(&storage); 
-    if(0 != connect(s, addr, sizeof(storage))){
+    if(connect(s, addr, sizeof(storage)) != 0){
         logexit("connect");
     }
 
-    char msg[BUFSZ];
-
+    char input[BUFSZ];
     bool gameStarted = false;
 
     while(1){
-        fflush(stdin);
-        memset(msg, 0, BUFSZ);
 
         //Leitura das mensagens de comando
-        scanf("%s", msg);
+        if (scanf("%s", input) == EOF) {
+            break;
+        }
 
         // Quebra da mensagem para analisar elementos
-        int cmdType = parseCommand(msg);
+        int cmdType = parseCommand(input);
         
         int coordnates[2];
 
@@ -111,6 +122,7 @@ int main(int argc, char **argv){
                 gameStarted = true;
                 request = initAction(START, coordnates, board);
                 canSend = true;
+                printf("game started\n");
                 break;
             case REVEAL:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
@@ -138,19 +150,27 @@ int main(int argc, char **argv){
                 canSend = true;
                 break;
             case EXIT:
-                printf("exiting...\n");
-                close(s);
+                request = initAction(EXIT, coordnates, board);
+                canSend = true;
                 break;
             default:
                 break;
         }
+
+
         if(canSend){
             int count = send(s, &request, sizeof(request), 0);
+            if(cmdType == EXIT){
+                close(s);
+                break;
+            }
             if(count != sizeof(request)){
                 logexit("send");
             }
+
             struct action response;
             count = recv(s, &response, sizeof(response), 0);
+
             if (response.type == WIN) {
                 printf("YOU WIN!\n");
                 gameStarted = false;
@@ -161,6 +181,6 @@ int main(int argc, char **argv){
 
             printBoard(response.board);  
         }
-        exit(EXIT_SUCCESS);
+        
     }
 }
