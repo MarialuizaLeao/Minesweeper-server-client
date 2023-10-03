@@ -1,27 +1,12 @@
 #include "common.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <inttypes.h>
-
 #define MAX 4
+#define BUFSZ 1024
 
 int answerBoard[MAX][MAX];
 char *ipVersion = "";
 char *port = "";
 char *inputFilePath = "";
-
-struct action{
-    int type;
-    int coordinates[2];
-    int board[4][4];
-};
 
 void printBoard(struct action *action){
     for(int i=0; i < MAX; i++){
@@ -102,9 +87,74 @@ int main(int argc, char *argv[]){
 
     struct action action;
     initBoard(&action);
-
-    
-    printf("ipVersion: %s, port: %s, inputFilePath: %s\n", ipVersion, port, inputFilePath);
-    initBoard(&action);
     printBoard(&action);
+
+     struct sockaddr_storage storage;
+    if(server_sockaddr_init(ipVersion, port, &storage)){
+        logexit("server_sockaddr_init");
+    }
+
+    // Socket
+    int s;
+    s = socket(storage.ss_family, SOCK_STREAM, 0);
+    if( s == -1 ){
+        logexit("socket");
+    }
+
+    // Reuse
+    int enable = 1;
+    if( 0 != setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))){
+        logexit("setsockopt");
+    }
+
+    // Bind
+    struct sockaddr *addr = (struct sockaddr *)(&storage);
+    if( 0 != bind(s, addr, sizeof(storage)) ){
+        logexit("bind");
+    }
+
+    // Listen
+    if( 0 != listen(s, 10) ){
+        logexit("listen");
+    }
+
+    // Accept
+    char addrstr[BUFSZ];
+    addrtostr(addr, addrstr, BUFSZ);
+    printf("bound to %s, waiting connections\n", addrstr);
+
+    struct sockaddr_storage cstorage;
+    struct sockaddr *caddr = (struct sockaddr *)(&cstorage);
+    socklen_t caddrlen = sizeof(cstorage);
+    int csock;
+
+    while(1){
+        csock = accept(s, caddr, &caddrlen);
+        if(csock == -1){
+            logexit("accept");
+        }
+        addrtostr(caddr, addrstr, BUFSZ);
+        printf("connection from %s\n", addrstr);
+
+        // Receive
+        uint8_t buf[BUFSZ];
+        memset(buf, 0, BUFSZ);
+        int count = recv(csock, buf, BUFSZ-1, 0);
+        printf("received %d bytes\n", count);
+        if( count == -1 ){
+            logexit("recv");
+        }
+        printf("received message: %s\n", buf);
+
+        // Send
+        char *msg = "Hello, friend!";
+        count = send(csock, msg, strlen(msg)+1, 0);
+        printf("sent %d bytes\n", count);
+        if( count != strlen(msg)+1 ){
+            logexit("send");
+        }
+
+        // Close
+        close(csock);
+    }
 }
