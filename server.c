@@ -31,7 +31,7 @@ void printBoard(struct action *action){
 
 void initArgs(int argc, char *argv[]){
     if(argc != 5 || strcmp(argv[3], "-i") != 0){
-        printf("Usage: ./server -t <ipVersion> -p <port>\n");
+        printf("Usage: ./server <ipVersion> <port> -i <inputFilePath>\n");
         exit(1);
     }
     else{
