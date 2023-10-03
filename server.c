@@ -1,5 +1,5 @@
 #include "common.h"
-#include <inttypes.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #define MAX 4
 
