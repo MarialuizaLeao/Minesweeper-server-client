@@ -29,7 +29,7 @@ void printBoard(int board[MAX][MAX]){
 
 void initArgs(int argc, char *argv[]){
     if(argc != 5 || strcmp(argv[3], "-i") != 0){
-        printf("Usage: ./server <ipVersion> <port> -i <inputFilePath>\n");
+        errorHandler(SERVER_USAGE_ERROR);
         exit(1);
     }
     else{
@@ -76,7 +76,7 @@ void removeFlag(int coordinates[2]){
 bool win(struct action request){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            if((clientBoard[i][j] != answerBoard[i][j] && clientBoard[i][j] != FLAGGED) || (clientBoard[i][j] == FLAGGED && answerBoard[i][j] != BOMB)){
+            if(clientBoard[i][j] != answerBoard[i][j] && answerBoard[i][j] != BOMB){
                 return false;
             }
         }
@@ -140,11 +140,6 @@ int main(int argc, char *argv[]){
     }
 
     while(true){
-
-        char addrstr[BUFSZ];
-        addrtostr(addr, addrstr, BUFSZ);
-        printf("bound to %s, waiting connections\n", addrstr);
-
         struct sockaddr_storage cstorage;
         struct sockaddr *caddr = (struct sockaddr *) &cstorage;
         socklen_t caddrlen = sizeof(cstorage);
@@ -162,7 +157,7 @@ int main(int argc, char *argv[]){
             } else if(count == -1){
                 logexit("recv");
             }
-            struct action *response;
+            struct action response;
             switch(request.type){
             case START:
                 resetBoard();
@@ -176,9 +171,11 @@ int main(int argc, char *argv[]){
                 }
                 else if(checkNewState(request) == GAME_OVER){
                     response = initAction(GAME_OVER, request.coordinates, answerBoard);
+                    resetBoard();
                 }
                 else if(checkNewState(request) == WIN){
                     response = initAction(WIN, request.coordinates, answerBoard);
+                    resetBoard();
                 }
                 break;
             case FLAG:

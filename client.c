@@ -4,7 +4,7 @@ int board[MAX][MAX];
 
 void initArgs(int argc, char *argv[]){
     if(argc != 3){
-        printf("Usage: ./client <ipVersion> <port>\n");
+        errorHandler(CLIENT_USAGE_ERROR);
         exit(1);
     }
     else{
@@ -15,6 +15,23 @@ void initArgs(int argc, char *argv[]){
 
 bool validCell(struct action action){
     if(action.coordinates[0] < 0 || action.coordinates[0] >= MAX || action.coordinates[1] < 0 || action.coordinates[1] >= MAX){
+        errorHandler(INVALID_CELL_ERROR);
+        return false;
+    }
+    return true;
+}
+
+bool validAction(struct action action){
+    if(action.type == REVEAL && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
+        errorHandler(REVEAL_ALREADY_REVEALED_CELL_ERROR);
+        return false;
+    }
+    else if(action.type == FLAG && action.board[action.coordinates[0]][action.coordinates[1]] == FLAGGED){
+        errorHandler(FLAG_ALREADY_FLAGGED_CELL_ERROR);
+        return false;
+    }
+    else if(action.type == FLAG && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
+        errorHandler(FLAG_ALREADY_REVEALED_CELL_ERROR);
         return false;
     }
     return true;
@@ -44,7 +61,7 @@ int parseCommand(char *cmd){
     return ERROR;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv){
     initArgs(argc, argv);
     //Reset board
 
@@ -68,7 +85,7 @@ int main(int argc, char **argv) {
 
     char msg[BUFSZ];
 
-    bool gameStared = false;
+    bool gameStarted = false;
 
     while(1){
         fflush(stdin);
@@ -82,74 +99,43 @@ int main(int argc, char **argv) {
         
         int coordnates[2];
 
+        bool canSend = false;
+        struct action request;
+
         // Chamada de ação específica para cada tipo de comando enviado
-        switch(cmdType) {
+        switch(cmdType){
             case ERROR:
-                printf("error: command not found\n");
+                errorHandler(COMMAND_ERROR);
                 break;
             case START:
-                gameStared = true;
-                struct action *request = initAction(START, coordnates, board);
-                int count = sendAction(request, s);
-                if(count != sizeof(request)){
-                    logexit("send");
-                }
-                struct action *response;
-                count = recv(s, &response, sizeof(response), 0);
+                gameStarted = true;
+                request = initAction(START, coordnates, board);
+                canSend = true;
                 break;
             case REVEAL:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                struct action *request = initAction(REVEAL, coordnates, board);
-                if(validCell(*request) && board[request->coordinates[0]][request->coordinates[1]] < 0){
-                    int count = sendAction(request, s);
-                    if(count != sizeof(request)){
-                        logexit("send");
-                    }
-                    struct action *response;
-                    count = recv(s, &response, sizeof(response), 0);
-                }
-                else{
-                    printf("error: invalid cell\n");
+                request = initAction(REVEAL, coordnates, board);
+                if(validCell(request) && validAction(request)){
+                    canSend = true;
                 }
                 break;
             case FLAG:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                struct action *request = initAction(FLAG, coordnates, board);
-                if(validCell(*request) && board[request->coordinates[0]][request->coordinates[1]] < 0 && board[request->coordinates[0]][request->coordinates[1]] != -2){
-                    int count = sendAction(request, s);
-                    if(count != sizeof(request)){
-                        logexit("send");
-                    }
-                    struct action *response;
-                    count = recv(s, &response, sizeof(response), 0);
-                }
-                else{
-                    printf("error: invalid cell\n");
+                request = initAction(FLAG, coordnates, board);
+                if(validCell(request) && validAction(request)){
+                    canSend = true;
                 }
                 break;
             case REMOVE_FLAG:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                struct action *request = initAction(REMOVE_FLAG, coordnates, board);
-                if(validCell(*request)){
-                    int count = sendAction(request, s);
-                    if(count != sizeof(request)){
-                        logexit("send");
-                    }
-                    struct action *response;
-                    count = recv(s, &response, sizeof(response), 0);
-                }
-                else{
-                    printf("error: invalid cell\n");
+                request = initAction(REMOVE_FLAG, coordnates, board);
+                if(validCell(request)){
+                    canSend = true;
                 }
                 break;
             case RESET:
-                struct action *request = initAction(RESET, coordnates, board);
-                int count = sendAction(request, s);
-                if(count != sizeof(request)){
-                    logexit("send");
-                }
-                struct action *response;
-                count = recv(s, &response, sizeof(response), 0);
+                request = initAction(RESET, coordnates, board);
+                canSend = true;
                 break;
             case EXIT:
                 printf("exiting...\n");
@@ -158,5 +144,23 @@ int main(int argc, char **argv) {
             default:
                 break;
         }
-    exit(EXIT_SUCCESS);
+        if(canSend){
+            int count = send(s, &request, sizeof(request), 0);
+            if(count != sizeof(request)){
+                logexit("send");
+            }
+            struct action response;
+            count = recv(s, &response, sizeof(response), 0);
+            if (response.type == WIN) {
+                printf("YOU WIN!\n");
+                gameStarted = false;
+            } else if(response.type == GAME_OVER){
+                printf("GAME OVER!\n");
+                gameStarted = false;
+            }
+
+            printBoard(response.board);  
+        }
+        exit(EXIT_SUCCESS);
+    }
 }
