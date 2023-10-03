@@ -13,16 +13,28 @@
 #define MAX 4
 #define BUFSZ 1024
 
-#define ERROR 0
-#define START 1 // Cliente -> Servidor
-#define REVEAL 2 // Cliente -> Servidor
-#define FLAG 3 // Cliente -> Servidor
-#define STATE 4 // Servidor -> Cliente
-#define REMOVE_FLAG 5 // Cliente -> Servidor
-#define RESET 6 // Cliente -> Servidor
-#define WIN 7 // Servidor -> Cliente
-#define EXIT 8 // Cliente -> Servidor 
-#define GAME_OVER 9 // Servidor -> Cliente
+#define ERROR -1
+#define START 0 // from client to server at the beginning of the game
+#define REVEAL 1 // from client to server to reveal a cell
+#define FLAG 2 // from client to server to flag a cell
+#define STATE 3 // from server to client everytime the state of the game changes
+#define REMOVE_FLAG 4 // from client to server to remove a flag
+#define RESET 5 // from client to server to reset the game
+#define WIN 6 // from server to client when the game is won
+#define EXIT 7 // from client to server to exit the game and disconnect
+#define GAME_OVER 8 // from server to client when the game is lost
+
+#define BOMB -1
+#define HIDDEN -2
+#define FLAGGED -3
+#define EMPTY 0
+
+#define COMMAND_ERROR 'error: command not found'
+#define INVALID_CELL_ERROR 'error: invalid cell'
+#define REVEAL_ALREADY_REVEALED_CELL_ERROR 'error: cell already revealed'
+#define FLAG_ALREADY_FLAGGED_CELL_ERROR 'error: cell already has a flag'
+#define FLAG_ALREADY_REVEALED_CELL_ERROR 'error: cannot insert flag in revealed cell'
+
 
 char *ipVersion = "";
 char *port = "";
@@ -40,4 +52,5 @@ void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
 int addrparse(const char *addrstr, const char *portstr, struct sockaddr_storage *storage);
 int server_sockaddr_init(const char *protocol_version, const char *portstr, struct sockaddr_storage *storage);
 void logexit(const char *msg);
-void printBoard(struct action *action);
+//void printBoard(struct action *action);
+void printBoard(int board[MAX][MAX]);

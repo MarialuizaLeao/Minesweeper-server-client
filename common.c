@@ -1,5 +1,19 @@
 #include "common.h"
 
+struct action *initAction(int type, int coordinates[2], int board[4][4]){
+    struct action *action = malloc(sizeof(struct action));
+    action->type = type;
+    action->coordinates[0] = coordinates[0];
+    action->coordinates[1] = coordinates[1];
+    for(int i = 0; i < MAX; i++){
+        for(int j = 0; j < MAX; j++){
+            action->board[i][j] = board[i][j];
+        }
+    }
+    return action;
+}
+
+
 void logexit(const char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);

@@ -1,26 +1,24 @@
 #include "common.h"
 
-#define MAX 4
-#define BUFSZ 1024
-
 int answerBoard[MAX][MAX];
-char *ipVersion = "";
-char *port = "";
-char *inputFilePath = "";
+int clientBoard[MAX][MAX];
 
-void printBoard(struct action *action){
+void printBoard(int board[MAX][MAX]){
     for(int i=0; i < MAX; i++){
         for(int j=0; j < MAX; j++){
-            if(action->board[i][j] == -1)
-                printf(" ");
-            else if (action->board[i][j] == -2){
-                printf("-\t\t");
+            if(board[i][j] == EMPTY)
+                printf("0\t\t");
+            else if (board[i][j] == BOMB){
+                printf("*\t\t");
             }
-            else if(action->board[i][j] == -3){
+            else if(board[i][j] == FLAGGED){
                 printf(">\t\t");
             }
+            else if(board[i][j] == HIDDEN){
+                printf("-\t\t");
+            }
             else{
-                printf("%d\t\t", action->board[i][j]);
+                printf("%d\t\t", board[i][j]);
             }
 
         }
@@ -41,7 +39,7 @@ void initArgs(int argc, char *argv[]){
     }
 }
 
-void initBoard(struct action *action){
+void initBoard(){
     FILE *fp = fopen(inputFilePath, "r");
     if(fp == NULL){
         printf("Error opening file\n");
@@ -49,28 +47,36 @@ void initBoard(struct action *action){
     }
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            fscanf(fp, "%d,", &action->board[i][j]);
+            fscanf(fp, "%d,", &answerBoard[i][j]);
         }
     }
     fclose(fp);
 }
 
-void resetBoard(struct action *action){
+void resetBoard(){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            action->board[i][j] = -2;
+            clientBoard[i][j] = -2;
         }
     }
 }
 
-void updateBoard(struct action *action, int newValue){
-    action->board[action->coordinates[0]][action->coordinates[1]] = newValue;
+void revealCell(int coordinates[2]){
+    clientBoard[coordinates[0]][coordinates[1]] = answerBoard[coordinates[0]][coordinates[1]];
 }
 
-bool win(struct action *action){
+void flagCell(int coordinates[2]){
+    clientBoard[coordinates[0]][coordinates[1]] = FLAGGED;
+}
+
+void removeFlag(int coordinates[2]){
+    clientBoard[coordinates[0]][coordinates[1]] = HIDDEN;
+}
+
+bool win(struct action request){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            if(action->board[i][j] != answerBoard[i][j] && action->board[i][j] == -1){
+            if((clientBoard[i][j] != answerBoard[i][j] && clientBoard[i][j] != FLAGGED) || (clientBoard[i][j] == FLAGGED && answerBoard[i][j] != BOMB)){
                 return false;
             }
         }
@@ -78,18 +84,33 @@ bool win(struct action *action){
     return true;
 }
 
-bool gameOver(struct action *action){
-    return !(action->board[action->coordinates[0]][action->coordinates[1]] == -1);
+// check if action will reveal a bomb
+bool revealBomb(struct action request){
+    if(answerBoard[request.coordinates[0]][request.coordinates[1]] == BOMB){
+        return true;
+    }
+    return false;
+}
+
+bool checkNewState(struct action request){
+    if(revealBomb(request)){
+        return GAME_OVER;
+    }
+    else if(win(request)){
+        return WIN;
+    }
+    else{
+        return STATE;
+    }
 }
 
 int main(int argc, char *argv[]){
     initArgs(argc, argv);
 
-    struct action action;
-    initBoard(&action);
-    printBoard(&action);
+    initBoard(answerBoard);
+    printBoard(answerBoard);
 
-     struct sockaddr_storage storage;
+    struct sockaddr_storage storage;
     if(server_sockaddr_init(ipVersion, port, &storage)){
         logexit("server_sockaddr_init");
     }
@@ -97,63 +118,94 @@ int main(int argc, char *argv[]){
     // Socket
     int s;
     s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if( s == -1 ){
+    if(s == -1){
         logexit("socket");
     }
 
     // Reuse
     int enable = 1;
-    if( 0 != setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))){
+    if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != 0){
         logexit("setsockopt");
     }
 
     // Bind
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if( 0 != bind(s, addr, sizeof(storage)) ){
+    if(bind(s, addr, sizeof(storage)) != 0){
         logexit("bind");
     }
 
     // Listen
-    if( 0 != listen(s, 10) ){
+    if(listen(s, 10) != 0){
         logexit("listen");
     }
 
-    // Accept
-    char addrstr[BUFSZ];
-    addrtostr(addr, addrstr, BUFSZ);
-    printf("bound to %s, waiting connections\n", addrstr);
+    while(true){
 
-    struct sockaddr_storage cstorage;
-    struct sockaddr *caddr = (struct sockaddr *)(&cstorage);
-    socklen_t caddrlen = sizeof(cstorage);
-    int csock;
+        char addrstr[BUFSZ];
+        addrtostr(addr, addrstr, BUFSZ);
+        printf("bound to %s, waiting connections\n", addrstr);
 
-    while(1){
-        csock = accept(s, caddr, &caddrlen);
+        struct sockaddr_storage cstorage;
+        struct sockaddr *caddr = (struct sockaddr *) &cstorage;
+        socklen_t caddrlen = sizeof(cstorage);
+
+        int csock = accept(s, caddr, &caddrlen);
         if(csock == -1){
             logexit("accept");
         }
-        addrtostr(caddr, addrstr, BUFSZ);
-        printf("connection from %s\n", addrstr);
+        while(true){
+            struct action request;
+            int count = recv(csock, &request, sizeof(request), 0);
 
-        // Receive
-        uint8_t buf[BUFSZ];
-        memset(buf, 0, BUFSZ);
-        int count = recv(csock, buf, BUFSZ-1, 0);
-        printf("received %d bytes\n", count);
-        if( count == -1 ){
-            logexit("recv");
+            if(count == 0){
+                break;
+            } else if(count == -1){
+                logexit("recv");
+            }
+            struct action *response;
+            switch(request.type){
+            case START:
+                resetBoard();
+                int coordinates[2] = {0,0};
+                response = initAction(STATE, coordinates, clientBoard);
+                break;
+            case REVEAL:
+                if(checkNewState(request) == STATE){
+                    revealCell(request.coordinates);
+                    response = initAction(STATE, request.coordinates, clientBoard);
+                }
+                else if(checkNewState(request) == GAME_OVER){
+                    response = initAction(GAME_OVER, request.coordinates, answerBoard);
+                }
+                else if(checkNewState(request) == WIN){
+                    response = initAction(WIN, request.coordinates, answerBoard);
+                }
+                break;
+            case FLAG:
+                flagCell(request.coordinates);
+                response = initAction(STATE, request.coordinates, clientBoard);
+                break;
+            case REMOVE_FLAG:
+                removeFlag(request.coordinates);
+                response = initAction(STATE, request.coordinates, clientBoard);
+                break;
+            case RESET:
+                resetBoard();
+                response = initAction(STATE, request.coordinates, clientBoard);
+                printf("starting new game\n");
+                break;
+            case EXIT:
+                resetBoard();
+                printf("client disconnected\n");
+                break;
+            default:
+                break;
+            }
+            count = send(csock, &response, sizeof(response), 0);
+            if(count != sizeof(response)){
+                logexit("send");
+            }
         }
-        printf("received message: %s\n", buf);
-
-        // Send
-        char *msg = "Hello, friend!";
-        count = send(csock, msg, strlen(msg)+1, 0);
-        printf("sent %d bytes\n", count);
-        if( count != strlen(msg)+1 ){
-            logexit("send");
-        }
-
         // Close
         close(csock);
     }
