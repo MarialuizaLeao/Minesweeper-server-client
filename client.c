@@ -14,72 +14,49 @@ int main(int argc, char **argv){
 
         int coordnates[2];
         bool canSendRequestToServer = true;
-        struct action requestToServer;
 
-        // Chamada de ação específica para cada tipo de comando enviado
         switch(cmdType){
-            case START:
-                requestToServer = initAction(START, coordnates, board);
-                printf("game started\n");
-                break;
-            case REVEAL:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                requestToServer = initAction(REVEAL, coordnates, board);
-                if(!validAction(requestToServer)){
-                    canSendRequestToServer = false;
-                }
-                break;
-            case FLAG:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                requestToServer = initAction(FLAG, coordnates, board);
-                if(!validAction(requestToServer)){
-                    canSendRequestToServer = false;
-                }
-                break;
-            case REMOVE_FLAG:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                requestToServer = initAction(REMOVE_FLAG, coordnates, board);
-                if(!validAction(requestToServer)){
-                    canSendRequestToServer = false;
-                }
-                break;
-            case RESET:
-                requestToServer = initAction(RESET, coordnates, board);
-                break;
-            case EXIT:
-                requestToServer = initAction(EXIT, coordnates, board);
-                break;
             case ERROR:
                 errorHandler(COMMAND_ERROR);
                 canSendRequestToServer = false;
                 break;
-        }
-        if(canSendRequestToServer){
-            int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0);
-            if(cmdType == EXIT){
-                close(sockfd);
+            default:
                 break;
-            }
-            if(count != sizeof(requestToServer)){
-                logexit("send");
-            }
+        }
 
+        if(cmdType == REVEAL || cmdType == FLAG || cmdType == REMOVE_FLAG){
+            scanf("%d,%d", &coordnates[0], &coordnates[1]);
+            if(!validAction(cmdType, coordnates)) canSendRequestToServer = false;
+        }
+
+        if(!canSendRequestToServer) continue;
+
+        struct action requestToServer = initAction(cmdType, coordnates, board);
+        int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0);
+        if(count != sizeof(requestToServer)){
+            logexit("send");
+        }
+
+        if(cmdType != EXIT){
             struct action responseFromServer;
             count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
             if(count != sizeof(responseFromServer)){
                     logexit("send");
             }
-            
+            if(cmdType == START) printf("game started\n");
             copyBoard(responseFromServer.board);
-
             if(responseFromServer.type == WIN) {
                 printf("YOU WIN!\n");
             } else if(responseFromServer.type == GAME_OVER){
                 printf("GAME OVER!\n");
             }
-            printBoard(board);  
+            printBoard(board);
         }
-        
+        else{
+            close(sockfd);
+            break;
+        }
+
     }
 }
 
@@ -123,28 +100,20 @@ void copyBoard(int Updatedboard[MAX][MAX]){
     }
 }
 
-bool validCell(struct action action){
-    if(action.coordinates[0] < 0 || action.coordinates[0] >= MAX || action.coordinates[1] < 0 || action.coordinates[1] >= MAX){
+bool validAction(int type, int coordinates[2]){
+    if(!VALID_COORD(coordinates[0], coordinates[1])){
         errorHandler(INVALID_CELL_ERROR);
         return false;
     }
-    return true;
-}
-
-bool validAction(struct action action){
-    if(!VALID_COORD(action.coordinates[0], action.coordinates[1])){
-        errorHandler(INVALID_CELL_ERROR);
-        return false;
-    }
-    else if(action.type == REVEAL && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
+    else if(type == REVEAL && REVEALED(board[coordinates[0]][coordinates[1]])){
         errorHandler(REVEAL_ALREADY_REVEALED_CELL_ERROR);
         return false;
     }
-    else if(action.type == FLAG && action.board[action.coordinates[0]][action.coordinates[1]] == FLAGGED){
+    else if(type == FLAG && board[coordinates[0]][coordinates[1]] == FLAGGED){
         errorHandler(FLAG_ALREADY_FLAGGED_CELL_ERROR);
         return false;
     }
-    else if(action.type == FLAG && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
+    else if(type == FLAG && REVEALED(board[coordinates[0]][coordinates[1]])){
         errorHandler(FLAG_ALREADY_REVEALED_CELL_ERROR);
         return false;
     }
