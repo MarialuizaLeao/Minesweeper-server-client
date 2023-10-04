@@ -5,7 +5,7 @@ int main(int argc, char **argv){
     initArgs(argc, argv);
     int sockfd = setSocket();
 
-    char input[BUFSZ]; // buffer for input
+    char input[BUFSZ];
 
     while(true){
 
@@ -37,26 +37,20 @@ int main(int argc, char **argv){
             logexit("send");
         }
 
-        if(cmdType != EXIT){
-            struct action responseFromServer;
-            count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
-            if(count != sizeof(responseFromServer)){
-                    logexit("send");
-            }
-            if(cmdType == START) printf("game started\n");
-            copyBoard(responseFromServer.board);
-            if(responseFromServer.type == WIN) {
-                printf("YOU WIN!\n");
-            } else if(responseFromServer.type == GAME_OVER){
-                printf("GAME OVER!\n");
-            }
-            printBoard(board);
-        }
-        else{
+        if(cmdType == EXIT){
             close(sockfd);
             break;
         }
 
+        struct action responseFromServer;
+        count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
+        if(count != sizeof(responseFromServer)) logexit("send");
+
+        if(cmdType == START) printf("game started\n");
+        if(responseFromServer.type == WIN) printf("YOU WIN!\n");
+        if(responseFromServer.type == GAME_OVER) printf("GAME OVER!\n");
+        copyBoard(responseFromServer.board);
+        printBoard(board);
     }
 }
 
@@ -65,30 +59,20 @@ void initArgs(int argc, char *argv[]){
         errorHandler(CLIENT_USAGE_ERROR);
         exit(1);
     }
-    else{
-        ipVersion = argv[1];
-        port = argv[2];
-    }
+    ipVersion = argv[1];
+    port = argv[2];
 }
 
 int setSocket(){
     // inicialize comunication
     struct sockaddr_storage storage;
-    if(addrparse(ipVersion, port, &storage) != 0){
-        logexit("addrparse");
-    }
-
+    if(addrparse(ipVersion, port, &storage) != 0) logexit("addrparse");
     // inicialize socket
     int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
-    if(sockfd == -1){
-        logexit("socket");
-    }
-
+    if(sockfd == -1) logexit("socket");
     // inicialize connection
     struct sockaddr *addr = (struct sockaddr *)(&storage); 
-    if(connect(sockfd, addr, sizeof(storage)) != 0){
-        logexit("connect");
-    }
+    if(connect(sockfd, addr, sizeof(storage)) != 0) logexit("connect");
     return sockfd;
 }
 
@@ -123,23 +107,11 @@ bool validAction(int type, int coordinates[2]){
 // Checagem de qual comando foi chamado
 int parseCommand(char *cmd){
     char *command = strtok(cmd, " ");
-    if(strcmp(command, "start") == 0){
-        return START;
-    }
-    else if(strcmp(command, "reveal") == 0){
-        return REVEAL;
-    }
-    else if(strcmp(command, "flag") == 0){
-        return FLAG;
-    }
-    else if(strcmp(command, "remove_flag") == 0){
-        return REMOVE_FLAG;
-    }
-    else if(strcmp(command, "reset") == 0){
-        return RESET;
-    }
-    else if(strcmp(command, "exit") == 0){
-        return EXIT;
-    }
+    if(strcmp(command, "start") == 0) return START;
+    else if(strcmp(command, "reveal") == 0) return REVEAL;
+    else if(strcmp(command, "flag") == 0) return FLAG;
+    else if(strcmp(command, "remove_flag") == 0) return REMOVE_FLAG;
+    else if(strcmp(command, "reset") == 0) return RESET;
+    else if(strcmp(command, "exit") == 0) return EXIT;
     return ERROR;
 }
