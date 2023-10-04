@@ -1,7 +1,7 @@
 #include "server.h"
 
 int main(int argc, char *argv[]){
-    
+
     initArgs(argc, argv);
     initBoard(answerBoard);
     int sockfd = setSocket();
@@ -13,20 +13,15 @@ int main(int argc, char *argv[]){
         socklen_t caddrlen = sizeof(cstorage);
 
         int csock = accept(sockfd, caddr, &caddrlen);
-        if(csock == -1){
-            logexit("accept");
-        }
+        if(csock == -1) logexit("accept");
         printf("client connected\n");
 
         while(true){
 
             struct action requestFromClient;
             int count = recv(csock, &requestFromClient, sizeof(requestFromClient), 0);
-            if(count == 0){
-                break;
-            } else if(count == -1){
-                logexit("recv");
-            }
+            if(count == 0) break;
+            if(count == -1) logexit("recv");
 
             struct action responseToClient;
 
@@ -55,15 +50,9 @@ int main(int argc, char *argv[]){
                     break;
             }
 
-            if(responseToClient.type == GAME_OVER || responseToClient.type == WIN){
-                resetClientBoard();
-            }
-
+            if(responseToClient.type == GAME_OVER || responseToClient.type == WIN) resetClientBoard();
             count = send(csock, &responseToClient, sizeof(responseToClient), 0);
-                
-            if(count != sizeof(responseToClient)){
-                logexit("send");
-            }   
+            if(count != sizeof(responseToClient)) logexit("send");
         }
         close(csock);
     }
@@ -74,11 +63,9 @@ void initArgs(int argc, char *argv[]){
         errorHandler(SERVER_USAGE_ERROR);
         exit(1);
     }
-    else{
-        ipVersion = argv[1];
-        port = argv[2];
-        inputFilePath = argv[4];
-    }
+    ipVersion = argv[1];
+    port = argv[2];
+    inputFilePath = argv[4];
 }
 
 void initBoard(){
@@ -107,32 +94,18 @@ void resetClientBoard(){
 
 int setSocket(){
     struct sockaddr_storage storage;
-    if(server_sockaddr_init(ipVersion, port, &storage)){
-        logexit("server_sockaddr_init");
-    }
-
+    if(server_sockaddr_init(ipVersion, port, &storage)) logexit("server_sockaddr_init");
     // Socket
     int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
-    if(sockfd == -1){
-        logexit("socket");
-    }
-
+    if(sockfd == -1) logexit("socket");
     // Reuse
     int enable = 1;
-    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != 0){
-        logexit("setsockopt");
-    }
-
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != 0) logexit("setsockopt");
     // Bind
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if(bind(sockfd, addr, sizeof(storage)) != 0){
-        logexit("bind");
-    }
-
+    if(bind(sockfd, addr, sizeof(storage)) != 0) logexit("bind");
     // Listen
-    if(listen(sockfd, 10) != 0){
-        logexit("listen");
-    }
+    if(listen(sockfd, 10) != 0) logexit("listen");
     return sockfd;
 }
 
