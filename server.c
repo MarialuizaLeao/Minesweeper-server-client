@@ -36,7 +36,7 @@ void initBoard(){
 void resetBoard(){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            clientBoard[i][j] = -2;
+            clientBoard[i][j] = HIDDEN;
         }
     }
 }
@@ -138,58 +138,55 @@ int main(int argc, char *argv[]){
             } else if(count == -1){
                 logexit("recv");
             }
+
             struct action response;
+
             switch(request.type){
-            case START:
-                resetBoard();
-                int coordinates[2] = {0,0};
-                response = initAction(STATE, coordinates, clientBoard);
-                break;
-            case REVEAL:
-                revealCell(request.coordinates);
-                switch(checkNewState(request))
-                {
-                case STATE:
-                    revealCell(request.coordinates);
+                case START:
+                    resetBoard();
                     response = initAction(STATE, request.coordinates, clientBoard);
                     break;
-                case GAME_OVER:
-                    response = initAction(GAME_OVER, request.coordinates, answerBoard);
-                    resetBoard();
+                case REVEAL:
+                    revealCell(request.coordinates);
+                    switch(checkNewState(request)){
+                        case STATE:
+                            revealCell(request.coordinates);
+                            response = initAction(STATE, request.coordinates, clientBoard);
+                            break;
+                        case GAME_OVER:
+                            response = initAction(GAME_OVER, request.coordinates, answerBoard);
+                            resetBoard();
+                            break;
+                        case WIN:
+                            response = initAction(WIN, request.coordinates, answerBoard);
+                            resetBoard();
+                            break;
+                    }
                     break;
-                case WIN:
-                    response = initAction(WIN, request.coordinates, answerBoard);
-                    resetBoard();
+                case FLAG:
+                    flagCell(request.coordinates);
+                    response = initAction(STATE, request.coordinates, clientBoard);
                     break;
-                
-                default:
+                case REMOVE_FLAG:
+                    removeFlag(request.coordinates);
+                    response = initAction(STATE, request.coordinates, clientBoard);
+                    break;
+                case RESET:
+                    resetBoard();
+                    response = initAction(STATE, request.coordinates, clientBoard);
+                    printf("starting new game\n");
+                    break;
+                case EXIT:
+                    resetBoard();
+                    printf("client disconnected\n");
                     break;
                 }
-                break;
-            case FLAG:
-                flagCell(request.coordinates);
-                response = initAction(STATE, request.coordinates, clientBoard);
-                break;
-            case REMOVE_FLAG:
-                removeFlag(request.coordinates);
-                response = initAction(STATE, request.coordinates, clientBoard);
-                break;
-            case RESET:
-                resetBoard();
-                response = initAction(STATE, request.coordinates, clientBoard);
-                printf("starting new game\n");
-                break;
-            case EXIT:
-                resetBoard();
-                printf("client disconnected\n");
-                break;
-            default:
-                break;
-            }
-            count = send(csock, &response, sizeof(response), 0);
-            if(count != sizeof(response)){
-                logexit("send");
-            }
+
+                count = send(csock, &response, sizeof(response), 0);
+                if(count != sizeof(response)){
+                    logexit("send");
+                }
+                
         }
         // Close
         close(csock);

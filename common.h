@@ -45,9 +45,11 @@ struct action{
 };
 
 struct action initAction(int type, int coordinates[2], int board[4][4]);
+
 void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
 int addrparse(const char *addrstr, const char *portstr, struct sockaddr_storage *storage);
 int server_sockaddr_init(const char *protocol_version, const char *portstr, struct sockaddr_storage *storage);
 void logexit(const char *msg);
+
 void printBoard(int board[MAX][MAX]);
 void errorHandler(char *error);

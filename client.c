@@ -5,6 +5,109 @@ int board[MAX][MAX];
 char *ipVersion = "";
 char *port = "";
 
+#define VALID_COORD(x,y) (x >= 0 && x < MAX && y >= 0 && y < MAX)
+
+void initArgs(int argc, char *argv[]); // inicialize arguments
+void copyBoard(int Updatedboard[MAX][MAX]); // copy board from server to local variable
+bool validAction(struct action action); // check if action is valid
+int parseCommand(char *cmd); // check which command was called
+
+int main(int argc, char **argv){
+    initArgs(argc, argv);
+
+    // inicialize comunication
+    struct sockaddr_storage storage;
+    if(addrparse(ipVersion, port, &storage) != 0){
+        logexit("addrparse");
+    }
+
+    // inicialize socket
+    int s;
+    s = socket(storage.ss_family, SOCK_STREAM, 0);
+    if(s == -1){
+        logexit("socket");
+    }
+
+    // inicialize connection
+    struct sockaddr *addr = (struct sockaddr *)(&storage); 
+    if(connect(s, addr, sizeof(storage)) != 0){
+        logexit("connect");
+    }
+
+    char input[BUFSZ]; // buffer for input
+
+    while(true){
+
+        scanf("%s", input);
+        int cmdType = parseCommand(input);
+        int coordnates[2];
+        bool canSendRequest = true;
+        struct action request;
+
+        // Chamada de ação específica para cada tipo de comando enviado
+        switch(cmdType){
+            case START:
+                request = initAction(START, coordnates, board);
+                printf("game started\n");
+                break;
+            case REVEAL:
+                scanf("%d,%d", &coordnates[0], &coordnates[1]);
+                request = initAction(REVEAL, coordnates, board);
+                if(!validAction(request)){
+                    canSendRequest = false;
+                }
+                break;
+            case FLAG:
+                scanf("%d,%d", &coordnates[0], &coordnates[1]);
+                request = initAction(FLAG, coordnates, board);
+                if(!validAction(request)){
+                    canSendRequest = false;
+                }
+                break;
+            case REMOVE_FLAG:
+                scanf("%d,%d", &coordnates[0], &coordnates[1]);
+                request = initAction(REMOVE_FLAG, coordnates, board);
+                if(!validAction(request)){
+                    canSendRequest = false;
+                }
+                break;
+            case RESET:
+                request = initAction(RESET, coordnates, board);
+                break;
+            case EXIT:
+                request = initAction(EXIT, coordnates, board);
+                break;
+            case ERROR:
+                errorHandler(COMMAND_ERROR);
+                canSendRequest = false;
+                break;
+        }
+        if(canSendRequest){
+            int count = send(s, &request, sizeof(request), 0);
+            if(cmdType == EXIT){
+                close(s);
+                break;
+            }
+            if(count != sizeof(request)){
+                logexit("send");
+            }
+
+            struct action response;
+            count = recv(s, &response, sizeof(response), 0);
+            
+            copyBoard(response.board);
+
+            if(response.type == WIN) {
+                printf("YOU WIN!\n");
+            } else if(response.type == GAME_OVER){
+                printf("GAME OVER!\n");
+            }
+            printBoard(board);  
+        }
+        
+    }
+}
+
 void initArgs(int argc, char *argv[]){
     if(argc != 3){
         errorHandler(CLIENT_USAGE_ERROR);
@@ -16,10 +119,10 @@ void initArgs(int argc, char *argv[]){
     }
 }
 
-void resetBoard(){
+void copyBoard(int Updatedboard[MAX][MAX]){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
-            board[i][j] = -2;
+            board[i][j] = Updatedboard[i][j];
         }
     }
 }
@@ -33,7 +136,11 @@ bool validCell(struct action action){
 }
 
 bool validAction(struct action action){
-    if(action.type == REVEAL && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
+    if(!VALID_COORD(action.coordinates[0], action.coordinates[1])){
+        errorHandler(INVALID_CELL_ERROR);
+        return false;
+    }
+    else if(action.type == REVEAL && REVEALED(action.board[action.coordinates[0]][action.coordinates[1]])){
         errorHandler(REVEAL_ALREADY_REVEALED_CELL_ERROR);
         return false;
     }
@@ -70,117 +177,4 @@ int parseCommand(char *cmd){
         return EXIT;
     }
     return ERROR;
-}
-
-int main(int argc, char **argv){
-    initArgs(argc, argv);
-    resetBoard(board);
-    //Reset board
-
-    struct sockaddr_storage storage;
-    if(addrparse(ipVersion, port, &storage) != 0){
-        logexit("addrparse");
-    }
-
-    // Inicializar Socket
-    int s;
-    s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if(s == -1){
-        logexit("socket");
-    }
-
-    // Inicializar Conexao
-    struct sockaddr *addr = (struct sockaddr *)(&storage); 
-    if(connect(s, addr, sizeof(storage)) != 0){
-        logexit("connect");
-    }
-
-    char input[BUFSZ];
-    bool gameStarted = false;
-
-    while(1){
-
-        //Leitura das mensagens de comando
-        if (scanf("%s", input) == EOF) {
-            break;
-        }
-
-        // Quebra da mensagem para analisar elementos
-        int cmdType = parseCommand(input);
-        
-        int coordnates[2];
-
-        bool canSend = false;
-        struct action request;
-
-        // Chamada de ação específica para cada tipo de comando enviado
-        switch(cmdType){
-            case ERROR:
-                errorHandler(COMMAND_ERROR);
-                break;
-            case START:
-                gameStarted = true;
-                request = initAction(START, coordnates, board);
-                canSend = true;
-                printf("game started\n");
-                break;
-            case REVEAL:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(REVEAL, coordnates, board);
-                if(validCell(request) && validAction(request)){
-                    canSend = true;
-                }
-                break;
-            case FLAG:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(FLAG, coordnates, board);
-                if(validCell(request) && validAction(request)){
-                    canSend = true;
-                }
-                break;
-            case REMOVE_FLAG:
-                scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(REMOVE_FLAG, coordnates, board);
-                if(validCell(request)){
-                    canSend = true;
-                }
-                break;
-            case RESET:
-                request = initAction(RESET, coordnates, board);
-                canSend = true;
-                break;
-            case EXIT:
-                request = initAction(EXIT, coordnates, board);
-                canSend = true;
-                break;
-            default:
-                break;
-        }
-
-
-        if(canSend){
-            int count = send(s, &request, sizeof(request), 0);
-            if(cmdType == EXIT){
-                close(s);
-                break;
-            }
-            if(count != sizeof(request)){
-                logexit("send");
-            }
-
-            struct action response;
-            count = recv(s, &response, sizeof(response), 0);
-
-            if (response.type == WIN) {
-                printf("YOU WIN!\n");
-                gameStarted = false;
-            } else if(response.type == GAME_OVER){
-                printf("GAME OVER!\n");
-                gameStarted = false;
-            }
-
-            printBoard(response.board);  
-        }
-        
-    }
 }
