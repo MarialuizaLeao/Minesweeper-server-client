@@ -14,25 +14,7 @@ int parseCommand(char *cmd); // check which command was called
 
 int main(int argc, char **argv){
     initArgs(argc, argv);
-
-    // inicialize comunication
-    struct sockaddr_storage storage;
-    if(addrparse(ipVersion, port, &storage) != 0){
-        logexit("addrparse");
-    }
-
-    // inicialize socket
-    int s;
-    s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if(s == -1){
-        logexit("socket");
-    }
-
-    // inicialize connection
-    struct sockaddr *addr = (struct sockaddr *)(&storage); 
-    if(connect(s, addr, sizeof(storage)) != 0){
-        logexit("connect");
-    }
+    int sockfd = setSocket();
 
     char input[BUFSZ]; // buffer for input
 
@@ -83,9 +65,9 @@ int main(int argc, char **argv){
                 break;
         }
         if(canSendRequest){
-            int count = send(s, &request, sizeof(request), 0);
+            int count = send(sockfd, &request, sizeof(request), 0);
             if(cmdType == EXIT){
-                close(s);
+                close(sockfd);
                 break;
             }
             if(count != sizeof(request)){
@@ -93,7 +75,10 @@ int main(int argc, char **argv){
             }
 
             struct action response;
-            count = recv(s, &response, sizeof(response), 0);
+            count = recv(sockfd, &response, sizeof(response), 0);
+            if(count != sizeof(response)){
+                    logexit("send");
+            }
             
             copyBoard(response.board);
 
@@ -117,6 +102,27 @@ void initArgs(int argc, char *argv[]){
         ipVersion = argv[1];
         port = argv[2];
     }
+}
+
+int setSocket(){
+    // inicialize comunication
+    struct sockaddr_storage storage;
+    if(addrparse(ipVersion, port, &storage) != 0){
+        logexit("addrparse");
+    }
+
+    // inicialize socket
+    int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
+    if(sockfd == -1){
+        logexit("socket");
+    }
+
+    // inicialize connection
+    struct sockaddr *addr = (struct sockaddr *)(&storage); 
+    if(connect(sockfd, addr, sizeof(storage)) != 0){
+        logexit("connect");
+    }
+    return sockfd;
 }
 
 void copyBoard(int Updatedboard[MAX][MAX]){

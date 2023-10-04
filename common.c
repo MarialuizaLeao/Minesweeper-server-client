@@ -118,7 +118,7 @@ int server_sockaddr_init(const char *proto, const char *portstr, struct sockaddr
         return -1;
     }
 
-} 
+}
 
 void printBoard(int board[MAX][MAX]){
     for(int i=0; i < MAX; i++){

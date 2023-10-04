@@ -11,8 +11,10 @@
 #include <unistd.h>
 
 #define MAX 4
+#define AMOUNT_OF_BOMBS 3
 #define BUFSZ 1024
 
+// labels for each type of action
 #define ERROR -1
 #define START 0 // from client to server at the beginning of the game
 #define REVEAL 1 // from client to server to reveal a cell
@@ -24,12 +26,14 @@
 #define EXIT 7 // from client to server to exit the game and disconnect
 #define GAME_OVER 8 // from server to client when the game is lost
 
+// labels for each type of cell
 #define BOMB -1
 #define HIDDEN -2
 #define FLAGGED -3
 #define EMPTY 0
 #define REVEALED(a) (a == 1|| a == 2|| a == 3 || a == 4 || a == 5|| a == 6)
 
+// labels for each type of error
 #define COMMAND_ERROR "error: command not found"
 #define INVALID_CELL_ERROR "error: invalid cell"
 #define REVEAL_ALREADY_REVEALED_CELL_ERROR "error: cell already revealed"

@@ -1,11 +1,88 @@
 #include "common.h"
 
+#define IS_BOMB(a) a == BOMB
+#define GAME_WON amountOfNotBombCells - 1 == 0
+
 char *ipVersion = "";
 char *port = "";
 char * inputFilePath = NULL;
 
 int answerBoard[MAX][MAX];
 int clientBoard[MAX][MAX];
+int amountOfNotBombCells = MAX*MAX - AMOUNT_OF_BOMBS;
+
+void initArgs(int argc, char *argv[]);
+void initBoard();
+void resetClientBoard();
+int setSocket();
+struct action changeClientBoardCell(int coordinates[2], int newValue, int requestType);
+
+int main(int argc, char *argv[]){
+    initArgs(argc, argv);
+    initBoard(answerBoard);
+    int sockfd = setSocket();
+
+    while(true){
+        struct sockaddr_storage cstorage;
+        struct sockaddr *caddr = (struct sockaddr *) &cstorage;
+        socklen_t caddrlen = sizeof(cstorage);
+
+        int csock = accept(sockfd, caddr, &caddrlen);
+        if(csock == -1){
+            logexit("accept");
+        }
+        printf("client connected\n");
+
+        while(true){
+
+            struct action requestFromClient;
+            int count = recv(csock, &requestFromClient, sizeof(requestFromClient), 0);
+            if(count == 0){
+                break;
+            } else if(count == -1){
+                logexit("recv");
+            }
+
+            struct action responseToClient;
+
+            switch(requestFromClient.type){
+                case START:
+                    resetClientBoard();
+                    responseToClient = initAction(STATE, requestFromClient.coordinates, clientBoard);
+                    break;
+                case REVEAL:
+                    responseToClient = changeClientBoardCell(requestFromClient.coordinates, answerBoard[requestFromClient.coordinates[0]][requestFromClient.coordinates[1]], REVEAL);
+                    break;
+                case FLAG:
+                    responseToClient = changeClientBoardCell(requestFromClient.coordinates, FLAGGED, FLAG);
+                    break;
+                case REMOVE_FLAG:
+                    responseToClient = changeClientBoardCell(requestFromClient.coordinates, HIDDEN, REMOVE_FLAG);
+                    break;
+                case RESET:
+                    resetClientBoard();
+                    responseToClient = initAction(STATE, requestFromClient.coordinates, clientBoard);
+                    printf("starting new game\n");
+                    break;
+                case EXIT:
+                    resetClientBoard();
+                    printf("client disconnected\n");
+                    break;
+            }
+
+            if(responseToClient.type == GAME_OVER || responseToClient.type == WIN){
+                resetClientBoard();
+            }
+
+            count = send(csock, &responseToClient, sizeof(responseToClient), 0);
+                
+            if(count != sizeof(responseToClient)){
+                logexit("send");
+            }   
+        }
+        close(csock);
+    }
+}
 
 void initArgs(int argc, char *argv[]){
     if(argc != 5 || strcmp(argv[3], "-i") != 0){
@@ -31,164 +108,53 @@ void initBoard(){
         }
     }
     fclose(fp);
+    printBoard(answerBoard);
 }
 
-void resetBoard(){
+void resetClientBoard(){
     for(int i = 0; i < MAX; i++){
         for(int j = 0; j < MAX; j++){
             clientBoard[i][j] = HIDDEN;
         }
     }
+    amountOfNotBombCells = MAX*MAX - AMOUNT_OF_BOMBS;
 }
 
-void revealCell(int coordinates[2]){
-    clientBoard[coordinates[0]][coordinates[1]] = answerBoard[coordinates[0]][coordinates[1]];
-}
-
-void flagCell(int coordinates[2]){
-    clientBoard[coordinates[0]][coordinates[1]] = FLAGGED;
-}
-
-void removeFlag(int coordinates[2]){
-    clientBoard[coordinates[0]][coordinates[1]] = HIDDEN;
-}
-
-bool win(struct action request){
-    for(int i = 0; i < MAX; i++){
-        for(int j = 0; j < MAX; j++){
-            if(!(request.coordinates[0] == i && request.coordinates[1] == j) && (clientBoard[i][j] != answerBoard[i][j] && answerBoard[i][j] != BOMB)){
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-// check if action will reveal a bomb
-bool revealBomb(struct action request){
-    if(answerBoard[request.coordinates[0]][request.coordinates[1]] == BOMB){
-        return true;
-    }
-    return false;
-}
-
-int checkNewState(struct action request){
-    if(revealBomb(request)){
-        return GAME_OVER;
-    }
-    else if(win(request)){
-        return WIN;
-    }
-    else{
-        return STATE;
-    }
-}
-
-int main(int argc, char *argv[]){
-    initArgs(argc, argv);
-
-    initBoard(answerBoard);
-    printBoard(answerBoard);
-
+int setSocket(){
     struct sockaddr_storage storage;
     if(server_sockaddr_init(ipVersion, port, &storage)){
         logexit("server_sockaddr_init");
     }
 
     // Socket
-    int s;
-    s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if(s == -1){
+    int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
+    if(sockfd == -1){
         logexit("socket");
     }
 
     // Reuse
     int enable = 1;
-    if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != 0){
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != 0){
         logexit("setsockopt");
     }
 
     // Bind
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if(bind(s, addr, sizeof(storage)) != 0){
+    if(bind(sockfd, addr, sizeof(storage)) != 0){
         logexit("bind");
     }
 
     // Listen
-    if(listen(s, 10) != 0){
+    if(listen(sockfd, 10) != 0){
         logexit("listen");
     }
+    return sockfd;
+}
 
-    while(true){
-        struct sockaddr_storage cstorage;
-        struct sockaddr *caddr = (struct sockaddr *) &cstorage;
-        socklen_t caddrlen = sizeof(cstorage);
-
-        int csock = accept(s, caddr, &caddrlen);
-        printf("client connected\n");
-        if(csock == -1){
-            logexit("accept");
-        }
-        while(true){
-            struct action request;
-            int count = recv(csock, &request, sizeof(request), 0);
-
-            if(count == 0){
-                break;
-            } else if(count == -1){
-                logexit("recv");
-            }
-
-            struct action response;
-
-            switch(request.type){
-                case START:
-                    resetBoard();
-                    response = initAction(STATE, request.coordinates, clientBoard);
-                    break;
-                case REVEAL:
-                    revealCell(request.coordinates);
-                    switch(checkNewState(request)){
-                        case STATE:
-                            revealCell(request.coordinates);
-                            response = initAction(STATE, request.coordinates, clientBoard);
-                            break;
-                        case GAME_OVER:
-                            response = initAction(GAME_OVER, request.coordinates, answerBoard);
-                            resetBoard();
-                            break;
-                        case WIN:
-                            response = initAction(WIN, request.coordinates, answerBoard);
-                            resetBoard();
-                            break;
-                    }
-                    break;
-                case FLAG:
-                    flagCell(request.coordinates);
-                    response = initAction(STATE, request.coordinates, clientBoard);
-                    break;
-                case REMOVE_FLAG:
-                    removeFlag(request.coordinates);
-                    response = initAction(STATE, request.coordinates, clientBoard);
-                    break;
-                case RESET:
-                    resetBoard();
-                    response = initAction(STATE, request.coordinates, clientBoard);
-                    printf("starting new game\n");
-                    break;
-                case EXIT:
-                    resetBoard();
-                    printf("client disconnected\n");
-                    break;
-                }
-
-                count = send(csock, &response, sizeof(response), 0);
-                if(count != sizeof(response)){
-                    logexit("send");
-                }
-                
-        }
-        // Close
-        close(csock);
-    }
+struct action changeClientBoardCell(int coordinates[2], int newValue, int requestType){
+    if(IS_BOMB(newValue)) return initAction(GAME_OVER, coordinates, answerBoard);
+    if(GAME_WON) return initAction(WIN, coordinates, answerBoard);
+    if(requestType == REVEAL) amountOfNotBombCells--;
+    clientBoard[coordinates[0]][coordinates[1]] = newValue;
+    return initAction(STATE, coordinates, clientBoard);
 }
