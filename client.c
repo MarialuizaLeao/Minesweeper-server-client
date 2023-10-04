@@ -1,18 +1,7 @@
-#include "common.h"
-
-int board[MAX][MAX];
-
-char *ipVersion = "";
-char *port = "";
-
-#define VALID_COORD(x,y) (x >= 0 && x < MAX && y >= 0 && y < MAX)
-
-void initArgs(int argc, char *argv[]); // inicialize arguments
-void copyBoard(int Updatedboard[MAX][MAX]); // copy board from server to local variable
-bool validAction(struct action action); // check if action is valid
-int parseCommand(char *cmd); // check which command was called
+#include "client.h"
 
 int main(int argc, char **argv){
+
     initArgs(argc, argv);
     int sockfd = setSocket();
 
@@ -22,69 +11,70 @@ int main(int argc, char **argv){
 
         scanf("%s", input);
         int cmdType = parseCommand(input);
+
         int coordnates[2];
-        bool canSendRequest = true;
-        struct action request;
+        bool canSendRequestToServer = true;
+        struct action requestToServer;
 
         // Chamada de ação específica para cada tipo de comando enviado
         switch(cmdType){
             case START:
-                request = initAction(START, coordnates, board);
+                requestToServer = initAction(START, coordnates, board);
                 printf("game started\n");
                 break;
             case REVEAL:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(REVEAL, coordnates, board);
-                if(!validAction(request)){
-                    canSendRequest = false;
+                requestToServer = initAction(REVEAL, coordnates, board);
+                if(!validAction(requestToServer)){
+                    canSendRequestToServer = false;
                 }
                 break;
             case FLAG:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(FLAG, coordnates, board);
-                if(!validAction(request)){
-                    canSendRequest = false;
+                requestToServer = initAction(FLAG, coordnates, board);
+                if(!validAction(requestToServer)){
+                    canSendRequestToServer = false;
                 }
                 break;
             case REMOVE_FLAG:
                 scanf("%d,%d", &coordnates[0], &coordnates[1]);
-                request = initAction(REMOVE_FLAG, coordnates, board);
-                if(!validAction(request)){
-                    canSendRequest = false;
+                requestToServer = initAction(REMOVE_FLAG, coordnates, board);
+                if(!validAction(requestToServer)){
+                    canSendRequestToServer = false;
                 }
                 break;
             case RESET:
-                request = initAction(RESET, coordnates, board);
+                requestToServer = initAction(RESET, coordnates, board);
                 break;
             case EXIT:
-                request = initAction(EXIT, coordnates, board);
+                requestToServer = initAction(EXIT, coordnates, board);
                 break;
             case ERROR:
                 errorHandler(COMMAND_ERROR);
-                canSendRequest = false;
+                canSendRequestToServer = false;
                 break;
         }
-        if(canSendRequest){
-            int count = send(sockfd, &request, sizeof(request), 0);
+        if(canSendRequestToServer){
+            int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0);
             if(cmdType == EXIT){
                 close(sockfd);
                 break;
             }
-            if(count != sizeof(request)){
+            if(count != sizeof(requestToServer)){
                 logexit("send");
             }
 
-            struct action response;
-            count = recv(sockfd, &response, sizeof(response), 0);
-            if(count != sizeof(response)){
+            struct action responseFromServer;
+            count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
+            if(count != sizeof(responseFromServer)){
                     logexit("send");
             }
             
-            copyBoard(response.board);
+            copyBoard(responseFromServer.board);
 
-            if(response.type == WIN) {
+            if(responseFromServer.type == WIN) {
                 printf("YOU WIN!\n");
-            } else if(response.type == GAME_OVER){
+            } else if(responseFromServer.type == GAME_OVER){
                 printf("GAME OVER!\n");
             }
             printBoard(board);  
