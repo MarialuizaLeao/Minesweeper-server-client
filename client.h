@@ -1,3 +1,7 @@
+#ifndef CLIENT_H
+#define CLIENT_H
+
+
 #include "common.h"
 
 int board[MAX][MAX];
@@ -13,3 +17,5 @@ int initSocket(); // inicialize socket
 int parseCommand(char *cmd); // check which command was called
 void copyBoard(int Updatedboard[MAX][MAX]); // copy board from server to local variable
 bool validAction(int type, int coordinates[2]); // check if action is valid
+
+#endif

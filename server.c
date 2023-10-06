@@ -122,7 +122,7 @@ int serverSockaddrInit(const char *ipProtocol, const char *portstr, struct socka
 int initSocket(){
     // initialize address
     struct sockaddr_storage storage;
-    if(serverSockaddrInitt(ipVersion, port, &storage)) logexit("serverSockaddrInitt");
+    if(serverSockaddrInit(ipVersion, port, &storage)) logexit("serverSockaddrInitt");
     // initialize socket
     int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
     if(sockfd == -1) logexit("socket");

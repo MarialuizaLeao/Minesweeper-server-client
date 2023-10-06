@@ -1,3 +1,6 @@
+#ifndef COMMON_H
+#define COMMON_H
+
 #pragma once
 
 #include <inttypes.h>
@@ -43,3 +46,5 @@ struct action actionInit(int type, int coordinates[2], int board[MAX][MAX]);
 
 void logexit(const char *msg);
 void printBoard(int board[MAX][MAX]);
+
+#endif
