@@ -33,15 +33,6 @@
 #define EMPTY 0
 #define REVEALED(a) (a == 1|| a == 2|| a == 3 || a == 4 || a == 5|| a == 6)
 
-// labels for each type of error
-#define COMMAND_ERROR "error: command not found"
-#define INVALID_CELL_ERROR "error: invalid cell"
-#define REVEAL_ALREADY_REVEALED_CELL_ERROR "error: cell already revealed"
-#define FLAG_ALREADY_FLAGGED_CELL_ERROR "error: cell already has a flag"
-#define FLAG_ALREADY_REVEALED_CELL_ERROR "error: cannot insert flag in revealed cell"
-#define CLIENT_USAGE_ERROR "Usage: ./client <ipVersion> <port>"
-#define SERVER_USAGE_ERROR "Usage: ./server <ipVersion> <port> -i <inputFilePath>"
-
 struct action{
   int type;
   int coordinates[2];
@@ -50,9 +41,5 @@ struct action{
 
 struct action actionInit(int type, int coordinates[2], int board[MAX][MAX]);
 
-int clientSockaddrInit(const char *ip, const char *portstr, struct sockaddr_storage *storage);
-int serverSockaddrInit(const char *ipProtocol, const char *portstr, struct sockaddr_storage *storage);
 void logexit(const char *msg);
-
 void printBoard(int board[MAX][MAX]);
-void errorHandler(char *error);
