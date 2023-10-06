@@ -16,15 +16,15 @@
 
 // labels for each type of action
 #define ERROR -1
-#define START 0 // from client to server at the beginning of the game
-#define REVEAL 1 // from client to server to reveal a cell
-#define FLAG 2 // from client to server to flag a cell
-#define STATE 3 // from server to client everytime the state of the game changes
-#define REMOVE_FLAG 4 // from client to server to remove a flag
-#define RESET 5 // from client to server to reset the game
-#define WIN 6 // from server to client when the game is won
-#define EXIT 7 // from client to server to exit the game and disconnect
-#define GAME_OVER 8 // from server to client when the game is lost
+#define START 0 // from client -> server at the beginning of the game
+#define REVEAL 1 // from client -> server to reveal a cell
+#define FLAG 2 // from client -> server to flag a cell
+#define STATE 3 // from server -> client everytime the state of the game changes
+#define REMOVE_FLAG 4 // from client -> server to remove a flag
+#define RESET 5 // from client to server -> reset the game
+#define WIN 6 // from server -> client when the game is won
+#define EXIT 7 // from client -> server to exit the game and disconnect
+#define GAME_OVER 8 // from server -> client when the game is lost
 
 // labels for each type of cell
 #define BOMB -1
@@ -45,14 +45,13 @@
 struct action{
   int type;
   int coordinates[2];
-  int board[4][4];
+  int board[MAX][MAX];
 };
 
-struct action initAction(int type, int coordinates[2], int board[4][4]);
+struct action actionInit(int type, int coordinates[2], int board[MAX][MAX]);
 
-void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
-int addrparse(const char *addrstr, const char *portstr, struct sockaddr_storage *storage);
-int server_sockaddr_init(const char *protocol_version, const char *portstr, struct sockaddr_storage *storage);
+int clientSockaddrInit(const char *ip, const char *portstr, struct sockaddr_storage *storage);
+int serverSockaddrInit(const char *ipProtocol, const char *portstr, struct sockaddr_storage *storage);
 void logexit(const char *msg);
 
 void printBoard(int board[MAX][MAX]);

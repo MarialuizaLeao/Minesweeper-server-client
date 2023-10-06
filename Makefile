@@ -1,22 +1,30 @@
 CC = gcc
 CFLAGS = -Wall -g -c -I .
+BIN = bin
+OBJ = obj
 
-all: server client
+all: $(BIN)/server $(BIN)/client
 
-server: server.o common.o
-	$(CC) -Wall -g server.o common.o -o server
+$(BIN)/server: $(OBJ)/server.o $(OBJ)/common.o | $(BIN)
+	$(CC) -Wall -g $(OBJ)/server.o $(OBJ)/common.o -o $(BIN)/server
 
-server.o: server.c
-	$(CC) server.c $(CFLAGS)
+$(OBJ)/server.o: server.c | $(OBJ)
+	$(CC) server.c $(CFLAGS) -o $(OBJ)/server.o
 
-client: client.o common.o
-	$(CC) -Wall -g client.o common.o -o client
+$(BIN)/client: $(OBJ)/client.o $(OBJ)/common.o | $(BIN)
+	$(CC) -Wall -g $(OBJ)/client.o $(OBJ)/common.o -o $(BIN)/client
 
-client.o: client.c
-	$(CC) client.c $(CFLAGS)
+$(OBJ)/client.o: client.c | $(OBJ)
+	$(CC) client.c $(CFLAGS) -o $(OBJ)/client.o
 
-common.o: common.c
-	$(CC) common.c $(CFLAGS)
+$(OBJ)/common.o: common.c | $(OBJ)
+	$(CC) common.c $(CFLAGS) -o $(OBJ)/common.o
+
+$(OBJ): 
+	mkdir $(OBJ)
+
+$(BIN):
+	mkdir $(BIN)
 
 clean:
-	rm -f *.o server client
+	rm -rf $(BIN) $(OBJ)

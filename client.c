@@ -1,26 +1,22 @@
 #include "client.h"
 
 int main(int argc, char **argv){
-
-    initArgs(argc, argv);
-    int sockfd = setSocket();
-
+    initArgs(argc, argv); // initialize ipVersion, port and inputFilePath
+    int sockfd = initSocket(); // initialize server's socket
     char input[BUFSZ];
-
     while(true){
-
-        scanf("%s", input);
+        if(scanf("%s", input) == EOF) break; // read command from terminal
         int cmdType = parseCommand(input);
-
         int coordnates[2];
         bool canSendRequestToServer = true;
-
         switch(cmdType){
             case ERROR:
+                // command wasn't reconnized
                 errorHandler(COMMAND_ERROR);
                 canSendRequestToServer = false;
                 break;
             default:
+                // command was reconnized
                 break;
         }
 
@@ -30,12 +26,10 @@ int main(int argc, char **argv){
         }
 
         if(!canSendRequestToServer) continue;
-
-        struct action requestToServer = initAction(cmdType, coordnates, board);
+        if(cmdType == START) printf("game started\n");
+        struct action requestToServer = actionInit(cmdType, coordnates, board);
         int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0);
-        if(count != sizeof(requestToServer)){
-            logexit("send");
-        }
+        if(count != sizeof(requestToServer)) logexit("send");
 
         if(cmdType == EXIT){
             close(sockfd);
@@ -46,7 +40,6 @@ int main(int argc, char **argv){
         count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
         if(count != sizeof(responseFromServer)) logexit("send");
 
-        if(cmdType == START) printf("game started\n");
         if(responseFromServer.type == WIN) printf("YOU WIN!\n");
         if(responseFromServer.type == GAME_OVER) printf("GAME OVER!\n");
         copyBoard(responseFromServer.board);
@@ -63,10 +56,10 @@ void initArgs(int argc, char *argv[]){
     port = argv[2];
 }
 
-int setSocket(){
-    // inicialize comunication
+int initSocket(){
+    // inicialize address
     struct sockaddr_storage storage;
-    if(addrparse(ipVersion, port, &storage) != 0) logexit("addrparse");
+    if(clientSockaddrInit(ipVersion, port, &storage) != 0) logexit("clientSockaddrInit");
     // inicialize socket
     int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
     if(sockfd == -1) logexit("socket");
@@ -104,7 +97,6 @@ bool validAction(int type, int coordinates[2]){
     return true;
 }
 
-// Checagem de qual comando foi chamado
 int parseCommand(char *cmd){
     char *command = strtok(cmd, " ");
     if(strcmp(command, "start") == 0) return START;

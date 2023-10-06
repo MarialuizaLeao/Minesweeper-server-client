@@ -11,8 +11,8 @@ int answerBoard[MAX][MAX];
 int clientBoard[MAX][MAX];
 int amountOfNotBombCells = MAX*MAX - AMOUNT_OF_BOMBS;
 
-void initArgs(int argc, char *argv[]);
-void initBoard();
-void resetClientBoard();
-int setSocket();
-struct action changeClientBoardCell(int coordinates[2], int newValue, int requestType);
+void initArgs(int argc, char *argv[]); // inicialize arguments
+void initBoard(); // inicialize board
+int initSocket(); // inicialize socket
+void resetClientBoard(); // reset client board
+struct action changeClientBoardCell(int coordinates[2], int newValue, int requestType); // change client board cell and return action with the server response to client
