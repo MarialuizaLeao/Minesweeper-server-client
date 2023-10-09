@@ -2,60 +2,57 @@
 
 int main(int argc, char **argv){
     initArgs(argc, argv); // initialize ipVersion, port and inputFilePath
-    int sockfd = initSocket(); // initialize server's socket
+    int sockfd = socketInit(); // initialize server's socket
     char input[BUFSZ];
     while(true){
         if(scanf("%s", input) == EOF) break; // read command from terminal
         int cmdType = parseCommand(input);
-        int coordnates[2];
+        int coordinates[2];
         bool canSendRequestToServer = true;
-
+        // handle command errors
         if(cmdType == ERROR){
-            logexit("error: command not found");
+            printf("error: command not found\n");
                 canSendRequestToServer = false;
-                break;
+                continue;;
         }
-
+        // commands that need coordinates
         if(cmdType == REVEAL || cmdType == FLAG || cmdType == REMOVE_FLAG){
-            scanf("%d,%d", &coordnates[0], &coordnates[1]);
-            if(!validAction(cmdType, coordnates)) canSendRequestToServer = false;
+            scanf("%d,%d", &coordinates[0], &coordinates[1]);
+            if(!validAction(cmdType, coordinates)) canSendRequestToServer = false;
         }
-
-        if(!canSendRequestToServer) continue;
-        if(cmdType == START) printf("game started\n");
-        struct action requestToServer = actionInit(cmdType, coordnates, board);
-        int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0);
+        if(!canSendRequestToServer) continue; // can't send request to server
+        if(cmdType == START) printf("game started\n"); // start game
+        struct action requestToServer = actionInit(cmdType, coordinates, board);
+        int count = send(sockfd, &requestToServer, sizeof(requestToServer), 0); // send request to server
         if(count != sizeof(requestToServer)) logexit("send");
-
+        // exit game
         if(cmdType == EXIT){
             close(sockfd);
             break;
         }
-
         struct action responseFromServer;
-        count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0);
+        count = recv(sockfd, &responseFromServer, sizeof(responseFromServer), 0); // receive response from server
         if(count != sizeof(responseFromServer)) logexit("send");
-
         if(responseFromServer.type == WIN) printf("YOU WIN!\n");
         if(responseFromServer.type == GAME_OVER) printf("GAME OVER!\n");
-        copyBoard(responseFromServer.board);
+        copyBoard(responseFromServer.board); // update board with the response from server
         printBoard(board);
     }
 }
 
 void initArgs(int argc, char *argv[]){
     if(argc != 3){
-        logexit("Usage: ./client <ipVersion> <port>");
+        printf("Usage: ./client <ipVersion> <port>\n");
         exit(1);
     }
-    ipVersion = argv[1];
+    ip = argv[1];
     port = argv[2];
 }
 
-int initSocket(){
+int socketInit(){
     // inicialize address
     struct sockaddr_storage storage;
-    if(clientSockaddrInit(ipVersion, port, &storage) != 0) logexit("clientSockaddrInit");
+    if(clientSockaddrInit(ip, port, &storage) != 0) logexit("clientSockaddrInit");
     // inicialize socket
     int sockfd = socket(storage.ss_family, SOCK_STREAM, 0);
     if(sockfd == -1) logexit("socket");
@@ -75,11 +72,11 @@ void copyBoard(int Updatedboard[MAX][MAX]){
 
 int clientSockaddrInit(const char *ip, const char *portstr, struct sockaddr_storage *storage){
     if(ip == NULL || portstr == NULL) return -1;
-
+    // inicialize port
     uint16_t port = (uint16_t) atoi(portstr);
     if(port == 0) return -1;
     port = htons(port); //host to network (litle endian)
-
+    // inicialize ip
     struct in_addr inaddr4; //32 bit IP Address
     if(inet_pton(AF_INET, ip, &inaddr4)){
         struct sockaddr_in *addr4 = (struct sockaddr_in *) storage;
@@ -101,19 +98,19 @@ int clientSockaddrInit(const char *ip, const char *portstr, struct sockaddr_stor
 
 bool validAction(int type, int coordinates[2]){
     if(!VALID_COORD(coordinates[0], coordinates[1])){
-        logexit("error: invalid cell");
+        printf("error: invalid cell\n");
         return false;
     }
     else if(type == REVEAL && REVEALED(board[coordinates[0]][coordinates[1]])){
-        logexit("error: cell already revealed");
+        printf("error: cell already revealed\n");
         return false;
     }
     else if(type == FLAG && board[coordinates[0]][coordinates[1]] == FLAGGED){
-        logexit("error: cell already has a flag");
+        printf("error: cell already has a flag\n");
         return false;
     }
     else if(type == FLAG && REVEALED(board[coordinates[0]][coordinates[1]])){
-        logexit("error: cannot insert flag in revealed cell");
+        printf("error: cannot insert flag in revealed cell\n");
         return false;
     }
     return true;

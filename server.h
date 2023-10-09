@@ -17,7 +17,7 @@ int amountOfNotBombCells = MAX*MAX - AMOUNT_OF_BOMBS;
 void initArgs(int argc, char *argv[]); // inicialize arguments
 void initBoard(); // inicialize board
 int serverSockaddrInit(const char *ipProtocol, const char *portstr, struct sockaddr_storage *storage);
-int initSocket(); // inicialize socket
+int socketInit(); // inicialize socket
 void resetClientBoard(); // reset client board
 struct action changeClientBoardCell(int coordinates[2], int newValue, int requestType); // change client board cell and return action with the server response to client
 

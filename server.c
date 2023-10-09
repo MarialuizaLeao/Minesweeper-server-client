@@ -3,7 +3,7 @@
 int main(int argc, char *argv[]){
     initArgs(argc, argv); // initialize ipVersion, port and inputFilePath
     initBoard(answerBoard); // initialize answerBoard with values read from file
-    int sockfd = initSocket(); // initialize server's socket
+    int sockfd = socketInit(); // initialize server's socket
     while(true){
         struct sockaddr_storage cstorage;
         struct sockaddr *caddr = (struct sockaddr *) &cstorage;
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]){
 
 void initArgs(int argc, char *argv[]){
     if(argc != 5 || strcmp(argv[3], "-i") != 0){
-        logexit("Usage: ./server <ipVersion> <port> -i <inputFilePath>");
+        printf("Usage: ./server <ipVersion> <port> -i <inputFilePath>\n");
         exit(1);
     }
     ipVersion = argv[1];
@@ -119,7 +119,7 @@ int serverSockaddrInit(const char *ipProtocol, const char *portstr, struct socka
     else return -1;
 }
 
-int initSocket(){
+int socketInit(){
     // initialize address
     struct sockaddr_storage storage;
     if(serverSockaddrInit(ipVersion, port, &storage)) logexit("serverSockaddrInitt");
